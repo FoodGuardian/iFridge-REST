@@ -31,4 +31,4 @@ async def fetch(request: Request) -> JSONResponse:
     return [{"productId": row[0], "brandName": row[3], "productName": row[4], "expirationDate": datetime.datetime.strftime(row[1], "%d/%m/%Y"), "productAmount": row[2]} for row in rows]
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", port=80)
+    uvicorn.run("app:app", host="0.0.0.0", port=80)
