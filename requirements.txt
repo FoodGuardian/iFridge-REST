@@ -3,3 +3,4 @@ uvicorn
 mysql_connector
 requests
 python-dotenv
+python-multipart
