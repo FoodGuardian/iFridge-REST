@@ -1,3 +1,5 @@
 fastapi
 uvicorn
 mysql_connector
+requests
+python-dotenv
