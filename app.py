@@ -28,7 +28,7 @@ async def fetch(request: Request) -> JSONResponse:
     rows = cursor.fetchall()
     cursor.close()
     db.close()
-    return [{"productId": row[0], "brandName": row[3], "productName": row[4], "expirationDate": datetime.datetime.strftime(row[1], "%d/%m/%Y"), "productAmount": row[2]} for row in rows]
+    return [{"productId": row[0], "brandName": row[3], "productName": row[4], "expiration": {"day": row[1].day, "month": row[1].month, "year": row[1].year}, "productAmount": row[2]} for row in rows]
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=80)
