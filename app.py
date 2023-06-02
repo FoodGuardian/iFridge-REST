@@ -39,7 +39,7 @@ async def fetch(request: Request) -> JSONResponse:
 @app.post("/recipe", response_class=JSONResponse)
 async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: List[str] = Form([])) -> JSONResponse:
     global conversation_id
-    data = {"access_token": ACCESS_TOKEN, "prompt": f"Maak een recept met {main_ingredient}. Andere beschikbare ingrediënten zijn:\n\n- " + "\n- ".join(ingredients) if len(ingredients) > 0 else "Geen" + "\n\nHoud er rekening mee dat er geen andere ingrediënten in de koelkast staan, dus maak alleen gebruik van de gegeven ingrediënten, niet alle ingrediënten hoeven gebruikt te worden.\n\nReageer alleen met de naam van het recept, een lijst met ingrediënten en instructies, reageer naast dit met niks anders.\n\nLaat geen witregels tussen de verschillende ingrediënten en instructies."}
+    data = {"access_token": ACCESS_TOKEN, "prompt": f"Maak een recept met {mainIngredient}. Andere beschikbare ingrediënten zijn:\n\n- " + "\n- ".join(ingredients) if len(ingredients) > 0 else "Geen" + "\n\nHoud er rekening mee dat er geen andere ingrediënten in de koelkast staan, dus maak alleen gebruik van de gegeven ingrediënten, niet alle ingrediënten hoeven gebruikt te worden.\n\nReageer alleen met de naam van het recept, een lijst met ingrediënten en instructies, reageer naast dit met niks anders.\n\nLaat geen witregels tussen de verschillende ingrediënten en instructies."}
     if conversation_id:
         data.update({"conversation_id": conversation_id})
     response = requests.post("https://ai.beunhaas.org", data=data)
