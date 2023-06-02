@@ -2,6 +2,7 @@ import uvicorn
 import json
 import os
 import requests
+import datetime
 
 from typing import Any, List
 from fastapi import FastAPI
@@ -25,16 +26,15 @@ app = FastAPI(
 load_dotenv()
 conversation_id = None
 ACCESS_TOKEN = os.getenv("OPENAI_TOKEN")
+DB = sql.connect(user="dbuser", password="Foodguardian", host="ifridge.local", database="ifridge")
 
 @app.post("/fetch", response_class=JSONResponse)
 async def fetch(request: Request) -> JSONResponse:
-    db = sql.connect(user="dbuser", password="Foodguardian", host="ifridge.local", database="ifridge")
-    cursor = db.cursor()
-    cursor.execute("SELECT Item.Productcode, Item.ExpirationDate, Item.Amount, Product.Brand, Product.Name FROM Item JOIN Product ON Item.Productcode = Product.Productcode")
+    cursor = DB.cursor()
+    cursor.execute("SELECT Item.ID, Item.Productcode, Item.ExpirationDate, Item.Amount, Product.Brand, Product.Name FROM Item JOIN Product ON Item.Productcode = Product.Productcode")
     rows = cursor.fetchall()
     cursor.close()
-    db.close()
-    return [{"productId": row[0], "brandName": row[3], "productName": row[4], "expiration": {"day": row[1].day, "month": row[1].month, "year": row[1].year}, "productAmount": row[2]} for row in rows]
+    return [{"productId": row[0], "productCode": row[1], "brandName": row[4], "productName": row[5], "expiration": {"day": row[2].day, "month": row[2].month, "year": row[2].year}, "productAmount": row[3]} for row in rows]
 
 @app.post("/recipe", response_class=JSONResponse)
 async def recipe(request: Request, main_ingredient: str = Form(""), ingredients: List[str] = Form([])) -> JSONResponse:
@@ -58,5 +58,41 @@ async def recipe(request: Request, main_ingredient: str = Form(""), ingredients:
                 instructions.append(line.split(". ", 1)[-1])
         return {"prefix": prefix, "ingredients": ingredients, "instructions": instructions, "suffix": suffix}
 
+@app.post("/delete", response_class=JSONResponse)
+async def delete(request: Request, productId: int = Form(0)) -> JSONResponse:
+    cursor = DB.cursor()
+    cursor.execute("SELECT Amount FROM Item WHERE ID = %s", (productId,))
+    row = cursor.fetchone()
+    cursor.close()
+    if not row or len(row) == 0:
+        return JSONResponse({"msg": "Product not found."}, 404)
+    elif row[0] > 1:
+        cursor.execute("UPDATE Item SET Amount = %s WHERE ID = %s", (row[0] - 1, productId))
+    else:
+        cursor.execute("DELETE FROM Item WHERE ID = %s", productId)
+    return {"msg": "Product deleted."}
+
+@app.post("/edit", response_class=JSONResponse)
+async def edit(request: Request, productId: int = Form(0), day: int = Form(0), month: int = Form(0), year: int = Form(0)) -> JSONResponse:
+    cursor = DB.cursor()
+    cursor.execute("SELECT ID FROM Item WHERE ID = %s", (productId,))
+    row = cursor.fetchone()
+    cursor.close()
+    if not row or len(row) == 0:
+        return JSONResponse({"msg": "Product not found."}, 404)
+    else:
+        try:
+            date = datetime.date(year, month, day)
+            if date < datetime.date.today():
+                return JSONResponse({"msg": "Date cannot be in the past."}, 400)
+            else:
+                cursor.execute("UPDATE Item SET ExpirationDate = %s WHERE ID = %s", (date, productId))
+                return {"msg": "Product updated."}
+        except:
+            return JSONResponse({"msg": "Malformed date."}, 400)
+
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=80)
+    try:
+        uvicorn.run("app:app", host="0.0.0.0", port=80)
+    except:
+        DB.close()
