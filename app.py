@@ -37,7 +37,7 @@ async def fetch(request: Request) -> JSONResponse:
     return [{"productId": row[0], "productCode": row[1], "brandName": row[4], "productName": row[5], "expiration": {"day": row[2].day, "month": row[2].month, "year": row[2].year}, "productAmount": row[3]} for row in rows]
 
 @app.post("/recipe", response_class=JSONResponse)
-async def recipe(request: Request, main_ingredient: str = Form(""), ingredients: List[str] = Form([])) -> JSONResponse:
+async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: List[str] = Form([])) -> JSONResponse:
     global conversation_id
     data = {"access_token": ACCESS_TOKEN, "prompt": f"Maak een recept met {main_ingredient}. Andere beschikbare ingrediënten zijn:\n\n- " + "\n- ".join(ingredients) if len(ingredients) > 0 else "Geen" + "\n\nHoud er rekening mee dat er geen andere ingrediënten in de koelkast staan, dus maak alleen gebruik van de gegeven ingrediënten, niet alle ingrediënten hoeven gebruikt te worden.\n\nReageer alleen met de naam van het recept, een lijst met ingrediënten en instructies, reageer naast dit met niks anders.\n\nLaat geen witregels tussen de verschillende ingrediënten en instructies."}
     if conversation_id:
