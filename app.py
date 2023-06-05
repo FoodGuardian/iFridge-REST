@@ -43,6 +43,7 @@ async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: 
     if conversation_id:
         data.update({"conversation_id": conversation_id})
     response = requests.post("https://ai.beunhaas.org", data=data)
+    print(response.content)
     if response.status_code == 200:
         conversation_id = response.json()["conversation_id"]
         message = response.json()["message"]
