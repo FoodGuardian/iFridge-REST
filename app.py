@@ -57,6 +57,8 @@ async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: 
             elif len(line) > 0 and line[0].isdigit():
                 instructions.append(line.split(". ", 1)[-1])
         return {"prefix": prefix, "ingredients": ingredients, "instructions": instructions, "suffix": suffix}
+    else:
+        return JSONResponse({"msg": "Something went wrong."}, 500)
 
 @app.post("/delete", response_class=JSONResponse)
 async def delete(request: Request, productId: int = Form(0)) -> JSONResponse:
