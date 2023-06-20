@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from fastapi.requests import Request
 from mysql import connector as sql
 from dotenv import load_dotenv
+from functools import partial
 
 class JSONResponse(Response):
     media_type = "application/json"
@@ -26,15 +27,19 @@ app = FastAPI(
 load_dotenv()
 conversation_id = None
 ACCESS_TOKEN = os.getenv("OPENAI_TOKEN")
-DB = sql.connect(user="dbuser", password="Foodguardian", host="ifridge.local", database="ifridge")
+
+def connect() -> sql.MySQLConnection:
+    return sql.connect(user="dbuser", password="Foodguardian", host="ifridge.local", database="ifridge")
 
 @app.post("/fetch", response_class=JSONResponse)
 async def fetch(request: Request) -> JSONResponse:
-    cursor = DB.cursor()
+    db = connect()
+    cursor = db.cursor()
     cursor.execute("SELECT Item.ID, Item.Productcode, Item.ExpirationDate, Item.Amount, Product.Brand, Product.Name FROM Item JOIN Product ON Item.Productcode = Product.Productcode")
     rows = cursor.fetchall()
     cursor.close()
-    return [{"productId": row[0], "productCode": row[1], "brandName": row[4], "productName": row[5], "expiration": {"day": row[2].day, "month": row[2].month, "year": row[2].year}, "productAmount": row[3]} for row in rows]
+    db.close()
+    return [{"productId": row[0], "productCode": row[1], "brandName": row[4], "productName": row[5] if row[1].isdigit() else row[1], "expiration": {"day": row[2].day, "month": row[2].month, "year": row[2].year}, "productAmount": row[3]} for row in rows]
 
 @app.post("/recipe", response_class=JSONResponse)
 async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: List[str] = Form([])) -> JSONResponse:
@@ -63,39 +68,48 @@ async def recipe(request: Request, mainIngredient: str = Form(""), ingredients: 
 
 @app.post("/delete", response_class=JSONResponse)
 async def delete(request: Request, productId: int = Form(0)) -> JSONResponse:
-    cursor = DB.cursor()
+    db = connect()
+    cursor = db.cursor()
     cursor.execute("SELECT Amount FROM Item WHERE ID = %s", (productId,))
     row = cursor.fetchone()
-    cursor.close()
     if not row or len(row) == 0:
         return JSONResponse({"msg": "Product not found."}, 404)
     elif row[0] > 1:
         cursor.execute("UPDATE Item SET Amount = %s WHERE ID = %s", (row[0] - 1, productId))
+        db.commit()
     else:
         cursor.execute("DELETE FROM Item WHERE ID = %s", productId)
+        db.commit()
+    cursor.close()
+    db.close()
     return {"msg": "Product deleted."}
 
 @app.post("/edit", response_class=JSONResponse)
 async def edit(request: Request, productId: int = Form(0), day: int = Form(0), month: int = Form(0), year: int = Form(0)) -> JSONResponse:
-    cursor = DB.cursor()
+    db = connect()
+    cursor = db.cursor()
     cursor.execute("SELECT ID FROM Item WHERE ID = %s", (productId,))
     row = cursor.fetchone()
-    cursor.close()
     if not row or len(row) == 0:
+        cursor.close()
+        db.close()
         return JSONResponse({"msg": "Product not found."}, 404)
     else:
         try:
             date = datetime.date(year, month, day)
             if date < datetime.date.today():
+                cursor.close()
+                db.close()
                 return JSONResponse({"msg": "Date cannot be in the past."}, 400)
             else:
                 cursor.execute("UPDATE Item SET ExpirationDate = %s WHERE ID = %s", (date, productId))
+                cursor.close()
+                db.close()
                 return {"msg": "Product updated."}
         except:
+            cursor.close()
+            db.close()
             return JSONResponse({"msg": "Malformed date."}, 400)
 
 if __name__ == "__main__":
-    try:
-        uvicorn.run("app:app", host="0.0.0.0", port=80)
-    except:
-        DB.close()
+    uvicorn.run("app:app", host="0.0.0.0", port=80)
